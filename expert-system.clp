@@ -77,21 +77,29 @@
          (food-safety ?food-safety) (freedom-of-speech ?freedom)
          (places-to-work-from ?places))
    =>
-   ;; Calculate the score directly using user weights and city attributes
-   (bind ?score (+ (* ?cost-w (- 10 ?cost))  ; Lower cost is better
-                   (* ?safety-w ?safety)
-                   (* ?fun-w ?fun)
-                   (* ?quality-w ?quality-of-life)
-                   (* ?internet-w ?internet)
-                   (* ?nightlife-w ?nightlife)
-                   (* ?english-speaking-w ?english-speaking)
-                   (* ?food-safety-w ?food-safety)
-                   (* ?freedom-w ?freedom)
-                   (* ?places-w ?places)))
-   ;; Assert the calculated score
-   (assert (city-score (name ?name) (score ?score)))
-   ;; Print the score for the city
-   (printout t "Calculated score for " ?name ": " ?score crlf))
+   ;; Calculate the Euclidean distance
+   (bind ?distance (sqrt (+ (** (- ?cost-w ?cost) 2)  ; Distance between user weight and cost
+                            (** (- ?safety-w ?safety) 2)
+                            (** (- ?fun-w ?fun) 2)
+                            (** (- ?quality-w ?quality-of-life) 2)
+                            (** (- ?internet-w ?internet) 2)
+                            (** (- ?nightlife-w ?nightlife) 2)
+                            (** (- ?english-speaking-w ?english-speaking) 2)
+                            (** (- ?food-safety-w ?food-safety) 2)
+                            (** (- ?freedom-w ?freedom) 2)
+                            (** (- ?places-w ?places) 2))))
+
+   ;; Define the maximum distance (arbitrarily large to scale percentage properly)
+   (bind ?max-distance 100)
+
+   ;; Calculate the percentage score
+   (bind ?percentage (- 100 (/ (* ?distance 100) ?max-distance)))
+
+   ;; Assert the percentage score
+   (assert (city-score (name ?name) (score ?percentage)))
+   ;; Print the percentage for the city
+   (printout t "Calculated score for " ?name ": " ?percentage "%" " (Distance: " ?distance ")" crlf))
+
 
 (deffunction my-predicate (?city-score1 ?city-score2)
   (> (fact-slot-value ?city-score1 score) (fact-slot-value ?city-score2 score))
