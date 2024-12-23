@@ -10,7 +10,7 @@ df = pd.read_csv(input_csv)
 # Replace null values with 0
 df.fillna(0, inplace=True)
 
-# Normalize columns to a 1-10 scale
+# Normalize columns to a 0–1 scale
 columns_to_normalize = [
     "Total score", "Cost", "Quality of life score", "Internet",
     "Safety", "Fun", "Walkability", "Nightlife", "Friendly to foreigners",
@@ -18,7 +18,9 @@ columns_to_normalize = [
 ]
 
 for column in columns_to_normalize:
-    df[column] = 1 + 9 * (df[column] - df[column].min()) / (df[column].max() - df[column].min())
+    df[column] = (df[column] - df[column].min()) / (df[column].max() - df[column].min())
+
+print(df.head(10))
 
 # Ask user for input preferences
 user_preferences = {}
@@ -33,32 +35,29 @@ for attribute in attributes:
     weight = float(input(f"Weight for {attribute}: "))
     user_preferences[attribute] = weight
 
-# Normalize user preferences so they sum to 1
-total_weight = sum(user_preferences.values())
-normalized_weights = {k: v / total_weight for k, v in user_preferences.items()}
-
 # Calculate Prior (P(H))
 df["Prior"] = df["Total score"] / df["Total score"].sum()
 
-# Calculate Likelihood (P(E|H))
-likelihoods = []
-for _, row in df.iterrows():
-    likelihood = 1  
-    for feature, weight in normalized_weights.items():
-        if feature == "Cost":
-            normalized_value = 10 - row[feature]
-        else:
-            normalized_value = row[feature]
-        
-        likelihood *= np.exp(weight * normalized_value)
-    likelihoods.append(likelihood)
+# Calculate Likelihood (P(E|H)) using distance-based scoring
+def calculate_likelihood(row):
+    total_distance = 0
+    for feature, user_weight in user_preferences.items():
+        city_value = row[feature]
+        if feature == "Cost":  # Lower cost is better
+            city_value = 1 - city_value  # Invert cost
+        # Distance between user preference and city value
+        distance = abs(user_weight / 10 - city_value)
+        total_distance += distance ** 2  # Squared distance
 
-df["Likelihood"] = likelihoods
+    # Convert distance to likelihood (smaller distance = higher likelihood)
+    return np.exp(-np.sqrt(total_distance))
+
+df["Likelihood"] = df.apply(calculate_likelihood, axis=1)
 
 # Calculate Posterior (P(H|E))
 df["Posterior"] = df["Prior"] * df["Likelihood"]
 
-# Normalize Posterior to sum to 1 (optional for better interpretation)
+# Normalize Posterior to sum to 1
 df["Posterior"] /= df["Posterior"].sum()
 
 # Sort cities by Posterior probability
